@@ -238,7 +238,7 @@ Double-click `run.bat` in the project root. It will:
 ## 👤 User Accounts & Modes
 
 ### 1. Normal Mode (Public Live Usage)
-Any user can click **Sign In / Register** in the top navigation bar to create their own free personal account. All analyses, custom uploaded transaction CSVs, and scam scans are strictly isolated under that user's account.
+Any user can click **Sign In / Register** in the top navigation bar to create their own free personal account. Collect-request and phishing analyses are associated with the signed-in account. Transaction CSVs are analysed in memory and are not saved to the database; their results are returned to the browser for the current session only.
 
 ### 2. Pre-seeded Showcase Profile
 A sample profile is preloaded with authentic attack scenarios (night velocity drain, electricity scam SMS, fake Diwali collect request) to demonstrate platform capabilities:
@@ -260,12 +260,12 @@ A sample profile is preloaded with authentic attack scenarios (night velocity dr
 | `POST` | `/api/dashboard/reset-demo` | Restore clean showcase evaluation data |
 | `POST` | `/api/fraud/analyze-collect-request` | Module 1: Scan UPI collect request |
 | `POST` | `/api/fraud/analyze-message` | Module 2: Scan SMS/WhatsApp text with NLP |
-| `POST` | `/api/fraud/analyze-transactions` | Module 3: Batch anomaly detection |
+| `POST` | `/api/fraud/analyze-transactions` | Module 3: Batch anomaly detection (not persisted) |
 | `GET` | `/api/fraud/history` | Paginated audit log with search and filters |
 | `GET` | `/api/fraud/{analysis_id}` | Detailed inspection of single analysis |
 | `DELETE`| `/api/fraud/history` | Clear user's analysis history |
 | `POST` | `/api/upload/screenshot` | OCR text extraction from uploaded image |
-| `POST` | `/api/upload/transactions` | Upload and analyze bank statement CSV |
+| `POST` | `/api/upload/transactions` | Analyse CSV in memory (max 5MB / 5,000 rows; not persisted) |
 | `GET` | `/api/analytics/risk-distribution` | Chart data for risk tiers and timeline |
 | `GET` | `/api/health` | Service health status and engine status |
 
@@ -276,7 +276,7 @@ A sample profile is preloaded with authentic attack scenarios (night velocity dr
 ## 🛡️ Ethical Safeguards & Privacy Notice
 
 1. **Zero Credential Ingestion**: FinSentinel never requests or stores UPI PINs, NetBanking passwords, card numbers, or live OTPs.
-2. **User Data Isolation**: Relational database foreign keys strictly segregate each user's analysis history.
+2. **User Data Isolation**: Relational database foreign keys segregate retained account analyses. Module 3 transaction uploads and results are not persisted to the database.
 3. **No Automatic URL Traversal**: The platform never automatically opens links detected in messages or screenshots, preventing drive-by malware infections.
 4. **Third-Party AI Isolation**: Gemini API requests only include sanitized analysis summaries and threat indicators without personally identifiable information.
 

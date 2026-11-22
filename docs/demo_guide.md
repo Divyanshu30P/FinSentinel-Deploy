@@ -53,6 +53,8 @@
    - Normal daytime transactions (Swiggy, Groceries) are green (Low Risk).
    - The 3 rapid transactions at 2:41 AM totaling ₹94,998 are flagged with: `Isolation Forest Outlier`, `Late Night (1-5 AM)`, `Rapid Velocity (3 in 1hr)`.
 
+Note: Transaction-analysis results are displayed in the Transaction Analyser for the current browser session and are intentionally not added to the persistent audit history.
+
 ### 5. Unified Dashboard & Audit History
 1. Click **Overview** in the sidebar.
 2. Review the live Chart.js activity graph and threat risk distribution donut.

@@ -81,5 +81,6 @@ flowchart TD
 ## 3. Data Isolation & Security Architecture
 
 1. **Authentication**: SHA-256 PBKDF2 password hashing (100,000 iterations) with cryptographic random salt, paired with JWT bearer authentication.
-2. **User Isolation**: All database queries strictly filter by `user_id == current_user.id`, ensuring zero cross-tenant data leaks.
-3. **Safe Architecture**: No banking credentials, UPI PINs, OTPs, or debit card CVVs are ever requested, captured, or stored.
+2. **User Isolation**: Retained account analyses are scoped to `user_id == current_user.id`.
+3. **Transaction Upload Privacy**: Module 3 CSV and manual transaction inputs are analysed in memory; transaction-level inputs and results are not written to the application database. CSV uploads are limited to 5MB and 5,000 rows. Results are returned to the browser for the current session.
+4. **Safe Architecture**: No banking credentials, UPI PINs, OTPs, or debit card CVVs are ever requested, captured, or stored.

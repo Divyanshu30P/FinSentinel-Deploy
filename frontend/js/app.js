@@ -266,6 +266,7 @@ class AppController {
   }
 
   logoutUser() {
+    if (window.txDetector) window.txDetector.clearResults();
     this.token = '';
     localStorage.removeItem('finsentinel_token');
     localStorage.removeItem('finsentinel_user');

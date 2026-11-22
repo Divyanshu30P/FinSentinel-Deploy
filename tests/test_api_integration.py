@@ -3,6 +3,9 @@ import pytest
 from fastapi.testclient import TestClient
 from backend.app.main import app
 from backend.app.config import settings
+from backend.app.database import SessionLocal
+from backend.app.models.transaction import TransactionRecord
+from backend.app.models.analysis import FraudAnalysis
 
 client = TestClient(app)
 
@@ -86,3 +89,40 @@ def test_dashboard_summary_api():
     assert "total_analyses" in data
     assert "recent_analyses" in data
     assert "recent_alerts" in data
+
+
+def test_transaction_csv_upload_is_not_persisted():
+    uid = str(uuid.uuid4())[:8]
+    registration = client.post("/api/auth/register", json={
+        "email": f"csv_privacy_{uid}@test.com",
+        "username": "CSV Privacy Test",
+        "password": "PasswordA123!"
+    })
+    assert registration.status_code == 200
+    user_id = registration.json()["user_id"]
+    headers = {"Authorization": f"Bearer {registration.json()['access_token']}"}
+
+    csv_content = (
+        "transaction_id,timestamp,amount,transaction_type,recipient_vpa,description,status\n"
+        "TEST001,2026-11-15 12:30:00,150,DEBIT,shop@example,Test purchase,SUCCESS\n"
+    )
+    response = client.post(
+        "/api/upload/transactions",
+        files={"file": ("test_statement.csv", csv_content, "text/csv")},
+        headers=headers
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["data_retained_by_application"] is False
+    assert "not save" in payload["privacy_notice"]
+    assert payload["summary"]["total_transactions"] == 1
+
+    db = SessionLocal()
+    try:
+        assert db.query(TransactionRecord).filter(TransactionRecord.user_id == user_id).count() == 0
+        assert db.query(FraudAnalysis).filter(
+            FraudAnalysis.user_id == user_id,
+            FraudAnalysis.category == "TRANSACTION_ANOMALY"
+        ).count() == 0
+    finally:
+        db.close()

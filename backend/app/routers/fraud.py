@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 from backend.app.database import get_db
 from backend.app.models.user import User
 from backend.app.models.analysis import FraudAnalysis
-from backend.app.models.transaction import TransactionRecord
 from backend.app.models.notification import FraudAlert
 from backend.app.schemas.fraud import (
     CollectRequestInput, PhishingMessageInput, TransactionBatchInput,
@@ -148,68 +147,20 @@ async def analyze_message(
 @router.post("/analyze-transactions", response_model=TransactionBatchResponse)
 async def analyze_transactions(
     payload: TransactionBatchInput,
-    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    """Analyse supplied transactions without storing transaction-level data."""
     if not payload.transactions:
         raise HTTPException(status_code=400, detail="No transactions provided for analysis.")
 
-    # Convert to DataFrame
     records = [t.model_dump() for t in payload.transactions]
     df = pd.DataFrame(records)
-
     batch_res = TransactionDetector.analyze_batch(df)
-
-    # Persist transactions and create alert if high anomalies found
-    for res in batch_res["results"]:
-        rec = TransactionRecord(
-            user_id=current_user.id,
-            transaction_id=res["transaction_id"],
-            timestamp=res["timestamp"],
-            amount=res["amount"],
-            transaction_type=res["transaction_type"],
-            recipient_vpa=res["recipient_vpa"],
-            description=res["description"],
-            risk_score=res["risk_score"],
-            risk_category=res["risk_category"],
-            anomaly_flags=json.dumps(res["anomaly_flags"])
-        )
-        db.add(rec)
-
-    # Log overall analysis record
-    total_anomalies = batch_res["summary"]["anomalies_detected"]
-    overall_cat = "HIGH" if batch_res["summary"]["high_risk_count"] > 0 else ("MEDIUM" if batch_res["summary"]["medium_risk_count"] > 0 else "LOW")
-    overall_score = 90 if overall_cat == "HIGH" else (50 if overall_cat == "MEDIUM" else 15)
-
-    summary_text = f"Batch Analysis of {len(payload.transactions)} transactions ({total_anomalies} anomalies detected)"
-
-    db_analysis = FraudAnalysis(
-        user_id=current_user.id,
-        category="TRANSACTION_ANOMALY",
-        input_summary=summary_text,
-        input_details=json.dumps({"count": len(payload.transactions), "anomalies": total_anomalies}),
-        risk_score=overall_score,
-        risk_category=overall_cat,
-        detected_indicators=json.dumps([{"code": "ANOMALOUS_PATTERN", "title": f"{total_anomalies} Anomalies Detected", "severity": overall_cat, "description": "Deviation from baseline or velocity spike."}]),
-        ml_confidence=0.88 if total_anomalies > 0 else 0.05,
-        explanation=f"Evaluated {len(payload.transactions)} transaction records using Isolation Forest and velocity rules. Identified {batch_res['summary']['high_risk_count']} high-risk and {batch_res['summary']['medium_risk_count']} medium-risk patterns.",
-        safety_recommendations=json.dumps(["Review flagged transactions", "Contact bank immediately if unrecognized"]),
-        is_demo=current_user.is_demo
+    batch_res["privacy_notice"] = (
+        "Transaction data is processed for this analysis and is not saved to FinSentinel's database. "
+        "Results are returned to your browser for display during this session."
     )
-    db.add(db_analysis)
-
-    if overall_cat in ["HIGH", "MEDIUM"]:
-        alert = FraudAlert(
-            user_id=current_user.id,
-            title="Suspicious Transaction Pattern Detected",
-            description=f"Batch scan identified {total_anomalies} anomalous transactions requiring user verification.",
-            risk_category=overall_cat,
-            analysis_id=db_analysis.id
-        )
-        db.add(alert)
-
-    db.commit()
-
+    batch_res["data_retained_by_application"] = False
     return batch_res
 
 @router.get("/history")

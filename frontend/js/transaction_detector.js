@@ -61,6 +61,10 @@ class TransactionDetectorController {
       window.app.showToast('Please upload a valid .csv file', 'error');
       return;
     }
+    if (file.size > 5 * 1024 * 1024) {
+      window.app.showToast('CSV files must be 5MB or smaller.', 'error');
+      return;
+    }
 
     const formData = new FormData();
     formData.append('file', file);
@@ -73,9 +77,12 @@ class TransactionDetectorController {
       });
 
       this.processResults(res);
-      window.app.showToast(`Processed ${res.summary.total_transactions} records! Found ${res.summary.anomalies_detected} anomalies.`, res.summary.anomalies_detected > 0 ? 'error' : 'success');
+      window.app.showToast(`Processed ${res.summary.total_transactions} records; ${res.summary.anomalies_detected} anomalies found. Transaction details were not saved.`, res.summary.anomalies_detected > 0 ? 'error' : 'success');
     } catch (e) {
       // Handled in apiRequest
+    } finally {
+      const input = document.getElementById('csv-file-input');
+      if (input) input.value = '';
     }
   }
 
@@ -113,7 +120,7 @@ class TransactionDetectorController {
 
       window.app.closeModal('modal-manual-tx');
       this.processResults(res);
-      window.app.showToast('Transaction analyzed successfully!', 'success');
+      window.app.showToast('Transaction analyzed. Details were not saved.', 'success');
     } catch (e) {
       // Handled in apiRequest
     }
@@ -154,6 +161,25 @@ class TransactionDetectorController {
     this.renderTable();
   }
 
+  clearResults() {
+    this.transactions = [];
+    this.filteredTransactions = [];
+    const banner = document.getElementById('tx-summary-banner');
+    if (banner) banner.style.display = 'none';
+    const tbody = document.getElementById('transactions-table-body');
+    if (tbody) tbody.textContent = '';
+    const search = document.getElementById('tx-search-input');
+    if (search) search.value = '';
+    const risk = document.getElementById('tx-risk-filter');
+    if (risk) risk.value = 'ALL';
+  }
+
+  escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>\"']/g, (char) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', "'": '&#39;'
+    })[char]);
+  }
+
   renderTable() {
     const tbody = document.getElementById('transactions-table-body');
     if (!tbody) return;
@@ -166,19 +192,19 @@ class TransactionDetectorController {
     tbody.innerHTML = this.filteredTransactions.map(t => {
       const flags = t.anomaly_flags || [];
       const flagsHtml = flags.length > 0
-        ? flags.map(f => `<span class="badge" style="background: rgba(240, 93, 101, 0.2); color: var(--danger); border: 1px solid rgba(240, 93, 101, 0.4); margin-right: 4px; font-size: 0.72rem; padding: 2px 6px;">${f}</span>`).join('')
+        ? flags.map(f => `<span class="badge" style="background: rgba(240, 93, 101, 0.2); color: var(--danger); border: 1px solid rgba(240, 93, 101, 0.4); margin-right: 4px; font-size: 0.72rem; padding: 2px 6px;">${this.escapeHtml(f)}</span>`).join('')
         : `<span style="color: var(--text-muted); font-size: 0.8rem;">None (Standard)</span>`;
 
       return `
         <tr style="${t.risk_category === 'HIGH' ? 'background: rgba(240, 93, 101, 0.04);' : ''}">
-          <td style="font-weight: 600;">${t.transaction_id}</td>
-          <td style="font-size: 0.8rem; color: var(--text-secondary);">${t.timestamp}</td>
+          <td style="font-weight: 600;">${this.escapeHtml(t.transaction_id)}</td>
+          <td style="font-size: 0.8rem; color: var(--text-secondary);">${this.escapeHtml(t.timestamp)}</td>
           <td style="font-weight: 700; ${t.transaction_type === 'DEBIT' ? 'color: var(--text-primary);' : 'color: var(--accent-primary);'}">
             ${t.transaction_type === 'DEBIT' ? '-' : '+'}₹${t.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}
           </td>
-          <td><span style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 600;">${t.transaction_type}</span></td>
-          <td style="font-family: monospace; font-size: 0.82rem; color: var(--accent-secondary);">${t.recipient_vpa || 'N/A'}</td>
-          <td>${t.description || '-'}</td>
+          <td><span style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 600;">${this.escapeHtml(t.transaction_type)}</span></td>
+          <td style="font-family: monospace; font-size: 0.82rem; color: var(--accent-secondary);">${this.escapeHtml(t.recipient_vpa || 'N/A')}</td>
+          <td>${this.escapeHtml(t.description || '-')}</td>
           <td><span class="risk-badge ${t.risk_category}" style="font-size: 0.72rem; padding: 2px 8px;">${t.risk_category}</span></td>
           <td>${flagsHtml}</td>
         </tr>

@@ -60,3 +60,5 @@ class TransactionAnalysisResult(BaseModel):
 class TransactionBatchResponse(BaseModel):
     summary: Dict[str, Any]
     results: List[TransactionAnalysisResult]
+    privacy_notice: Optional[str] = None
+    data_retained_by_application: Optional[bool] = None

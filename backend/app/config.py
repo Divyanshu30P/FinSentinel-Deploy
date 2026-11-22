@@ -17,6 +17,8 @@ class Settings(BaseModel):
     
     # Upload Configurations
     MAX_IMAGE_SIZE_MB: int = 5
+    MAX_TRANSACTION_CSV_SIZE_MB: int = 5
+    MAX_TRANSACTION_CSV_ROWS: int = 5000
     ALLOWED_IMAGE_TYPES: list = ["image/jpeg", "image/png", "image/webp"]
     
     # Preloaded Showcase User Credentials
